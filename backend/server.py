@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -6,10 +6,11 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List
+from typing import List, Dict, Optional
 import uuid
-from datetime import datetime, timezone
-
+from datetime import datetime, timezone, timedelta
+import random
+import requests
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -25,46 +26,380 @@ app = FastAPI()
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
-
 # Define Models
-class StatusCheck(BaseModel):
-    model_config = ConfigDict(extra="ignore")  # Ignore MongoDB's _id field
+class CurrentAirQuality(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    location: str = "Delhi, India"
+    no2: float  # µg/m³
+    o3: float   # µg/m³
+    aqi_category: str
+    aqi_value: int
+    trend_no2: str  # "rising", "falling", "stable"
+    trend_o3: str
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
+class ForecastDataPoint(BaseModel):
+    timestamp: datetime
+    value: float
+    confidence: float = 0.85
 
-# Add your routes to the router instead of directly to app
+class ForecastResponse(BaseModel):
+    pollutant: str
+    unit: str
+    forecast_hours: int
+    data: List[ForecastDataPoint]
+
+class HotspotLocation(BaseModel):
+    name: str
+    latitude: float
+    longitude: float
+    no2: float
+    o3: float
+    aqi: int
+    severity: str  # "good", "moderate", "poor", "severe"
+
+class HotspotsResponse(BaseModel):
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    locations: List[HotspotLocation]
+
+class WeatherData(BaseModel):
+    timestamp: datetime
+    temperature: float
+    humidity: float
+    wind_speed: float
+    wind_direction: float
+    solar_radiation: float
+    pressure: float
+    cloud_cover: float
+
+class Alert(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    severity: str  # "info", "warning", "danger"
+    title: str
+    message: str
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    recommendations: List[str]
+
+class HistoricalDataPoint(BaseModel):
+    year: int
+    month: int
+    avg_no2: float
+    avg_o3: float
+    max_no2: float
+    max_o3: float
+
+class SeasonalPattern(BaseModel):
+    season: str
+    avg_no2: float
+    avg_o3: float
+    description: str
+
+# Helper functions
+def calculate_aqi(no2: float, o3: float) -> tuple[int, str]:
+    """Calculate AQI based on NO2 and O3 levels"""
+    # Simplified AQI calculation
+    no2_aqi = (no2 / 400) * 500  # NO2 in µg/m³
+    o3_aqi = (o3 / 240) * 500    # O3 in µg/m³
+    aqi = int(max(no2_aqi, o3_aqi))
+    
+    if aqi <= 50:
+        return aqi, "Good"
+    elif aqi <= 100:
+        return aqi, "Satisfactory"
+    elif aqi <= 200:
+        return aqi, "Moderate"
+    elif aqi <= 300:
+        return aqi, "Poor"
+    elif aqi <= 400:
+        return aqi, "Very Poor"
+    else:
+        return aqi, "Severe"
+
+def generate_trend() -> str:
+    """Generate random trend"""
+    trends = ["rising", "falling", "stable"]
+    weights = [0.4, 0.3, 0.3]
+    return random.choices(trends, weights=weights)[0]
+
+# API Routes
 @api_router.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "Delhi Air Quality Intelligence API", "version": "1.0.0"}
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.model_dump()
-    status_obj = StatusCheck(**status_dict)
+@api_router.get("/current-air-quality", response_model=CurrentAirQuality)
+async def get_current_air_quality():
+    """Get current NO2 and O3 levels for Delhi"""
+    # Generate realistic mock data
+    no2 = round(random.uniform(45, 180), 2)  # Typical Delhi NO2 range
+    o3 = round(random.uniform(30, 150), 2)    # Typical Delhi O3 range
     
-    # Convert to dict and serialize datetime to ISO string for MongoDB
-    doc = status_obj.model_dump()
-    doc['timestamp'] = doc['timestamp'].isoformat()
+    aqi, category = calculate_aqi(no2, o3)
     
-    _ = await db.status_checks.insert_one(doc)
-    return status_obj
+    return CurrentAirQuality(
+        no2=no2,
+        o3=o3,
+        aqi_category=category,
+        aqi_value=aqi,
+        trend_no2=generate_trend(),
+        trend_o3=generate_trend()
+    )
 
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    # Exclude MongoDB's _id field from the query results
-    status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
+@api_router.get("/forecast/no2", response_model=ForecastResponse)
+async def get_no2_forecast(hours: int = 24):
+    """Get NO2 forecast for next 24-48 hours"""
+    if hours not in [24, 48]:
+        raise HTTPException(status_code=400, detail="Hours must be 24 or 48")
     
-    # Convert ISO string timestamps back to datetime objects
-    for check in status_checks:
-        if isinstance(check['timestamp'], str):
-            check['timestamp'] = datetime.fromisoformat(check['timestamp'])
+    base_value = random.uniform(60, 120)
+    data = []
     
-    return status_checks
+    for i in range(hours):
+        timestamp = datetime.now(timezone.utc) + timedelta(hours=i)
+        # Add some variation
+        variation = random.uniform(-15, 15)
+        value = max(20, min(200, base_value + variation + (i * 0.5)))  # Slight upward trend
+        
+        data.append(ForecastDataPoint(
+            timestamp=timestamp,
+            value=round(value, 2),
+            confidence=round(random.uniform(0.75, 0.95), 2)
+        ))
+    
+    return ForecastResponse(
+        pollutant="NO2",
+        unit="µg/m³",
+        forecast_hours=hours,
+        data=data
+    )
+
+@api_router.get("/forecast/o3", response_model=ForecastResponse)
+async def get_o3_forecast(hours: int = 24):
+    """Get O3 forecast for next 24-48 hours"""
+    if hours not in [24, 48]:
+        raise HTTPException(status_code=400, detail="Hours must be 24 or 48")
+    
+    base_value = random.uniform(40, 100)
+    data = []
+    
+    for i in range(hours):
+        timestamp = datetime.now(timezone.utc) + timedelta(hours=i)
+        # O3 varies with sunlight - higher during day
+        hour_of_day = (datetime.now().hour + i) % 24
+        sunlight_factor = 1.5 if 10 <= hour_of_day <= 16 else 0.7
+        
+        variation = random.uniform(-10, 10)
+        value = max(10, min(180, (base_value + variation) * sunlight_factor))
+        
+        data.append(ForecastDataPoint(
+            timestamp=timestamp,
+            value=round(value, 2),
+            confidence=round(random.uniform(0.75, 0.95), 2)
+        ))
+    
+    return ForecastResponse(
+        pollutant="O3",
+        unit="µg/m³",
+        forecast_hours=hours,
+        data=data
+    )
+
+@api_router.get("/hotspots", response_model=HotspotsResponse)
+async def get_hotspots():
+    """Get area-wise pollution data for Delhi"""
+    # Delhi localities with coordinates
+    localities = [
+        {"name": "Connaught Place", "lat": 28.6315, "lon": 77.2167},
+        {"name": "Karol Bagh", "lat": 28.6519, "lon": 77.1909},
+        {"name": "Dwarka", "lat": 28.5921, "lon": 77.0460},
+        {"name": "Rohini", "lat": 28.7495, "lon": 77.0736},
+        {"name": "Nehru Place", "lat": 28.5494, "lon": 77.2501},
+        {"name": "Anand Vihar", "lat": 28.6469, "lon": 77.3162},
+        {"name": "Punjabi Bagh", "lat": 28.6692, "lon": 77.1317},
+        {"name": "Mayur Vihar", "lat": 28.6082, "lon": 77.2977},
+        {"name": "Vasant Vihar", "lat": 28.5672, "lon": 77.1595},
+        {"name": "Janakpuri", "lat": 28.6219, "lon": 77.0831},
+        {"name": "Pitampura", "lat": 28.6985, "lon": 77.1317},
+        {"name": "Lajpat Nagar", "lat": 28.5677, "lon": 77.2431},
+        {"name": "Saket", "lat": 28.5244, "lon": 77.2066},
+        {"name": "Patel Nagar", "lat": 28.6505, "lon": 77.1710},
+        {"name": "Shahdara", "lat": 28.6850, "lon": 77.2867}
+    ]
+    
+    locations = []
+    for loc in localities:
+        no2 = round(random.uniform(40, 200), 2)
+        o3 = round(random.uniform(30, 160), 2)
+        aqi, severity = calculate_aqi(no2, o3)
+        
+        locations.append(HotspotLocation(
+            name=loc["name"],
+            latitude=loc["lat"],
+            longitude=loc["lon"],
+            no2=no2,
+            o3=o3,
+            aqi=aqi,
+            severity=severity.lower()
+        ))
+    
+    return HotspotsResponse(locations=locations)
+
+@api_router.get("/weather", response_model=WeatherData)
+async def get_weather():
+    """Get weather data from Open-Meteo API"""
+    try:
+        url = "https://api.open-meteo.com/v1/forecast"
+        params = {
+            "latitude": 28.6139,
+            "longitude": 77.2090,
+            "current": "temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,surface_pressure,cloud_cover",
+            "hourly": "shortwave_radiation",
+            "timezone": "auto"
+        }
+        
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        
+        current = data.get("current", {})
+        hourly = data.get("hourly", {})
+        
+        # Get current hour's solar radiation
+        solar_radiation = hourly.get("shortwave_radiation", [0])[0] if hourly.get("shortwave_radiation") else 0
+        
+        return WeatherData(
+            timestamp=datetime.now(timezone.utc),
+            temperature=current.get("temperature_2m", 0),
+            humidity=current.get("relative_humidity_2m", 0),
+            wind_speed=current.get("wind_speed_10m", 0),
+            wind_direction=current.get("wind_direction_10m", 0),
+            solar_radiation=solar_radiation,
+            pressure=current.get("surface_pressure", 0),
+            cloud_cover=current.get("cloud_cover", 0)
+        )
+    except Exception as e:
+        logging.error(f"Error fetching weather data: {e}")
+        # Return mock data if API fails
+        return WeatherData(
+            timestamp=datetime.now(timezone.utc),
+            temperature=25.5,
+            humidity=65,
+            wind_speed=12.5,
+            wind_direction=180,
+            solar_radiation=450,
+            pressure=1013,
+            cloud_cover=30
+        )
+
+@api_router.get("/alerts", response_model=List[Alert])
+async def get_alerts():
+    """Get active pollution alerts"""
+    alerts = []
+    
+    # Generate alerts based on mock conditions
+    no2_level = random.uniform(60, 180)
+    
+    if no2_level > 150:
+        alerts.append(Alert(
+            severity="danger",
+            title="High NO₂ Levels Detected",
+            message=f"Current NO₂ levels at {no2_level:.1f} µg/m³ exceed safe limits.",
+            recommendations=[
+                "Avoid outdoor activities during peak hours",
+                "Use N95 masks when going outside",
+                "Keep windows closed",
+                "Use air purifiers indoors"
+            ]
+        ))
+    elif no2_level > 100:
+        alerts.append(Alert(
+            severity="warning",
+            title="Moderate Air Quality",
+            message="Air quality is moderate. Sensitive groups should take precautions.",
+            recommendations=[
+                "Limit prolonged outdoor exertion",
+                "Children and elderly should stay indoors",
+                "Monitor air quality updates regularly"
+            ]
+        ))
+    else:
+        alerts.append(Alert(
+            severity="info",
+            title="Good Air Quality",
+            message="Air quality is satisfactory. Enjoy outdoor activities!",
+            recommendations=[
+                "Great time for outdoor exercise",
+                "Open windows for fresh air",
+                "Take walks in parks"
+            ]
+        ))
+    
+    return alerts
+
+@api_router.get("/historical", response_model=List[HistoricalDataPoint])
+async def get_historical_data():
+    """Get monthly historical data for last 5 years"""
+    data = []
+    current_year = datetime.now().year
+    
+    for year in range(current_year - 4, current_year + 1):
+        for month in range(1, 13):
+            # Winter months (Nov-Feb) have higher NO2
+            if month in [11, 12, 1, 2]:
+                avg_no2 = random.uniform(100, 180)
+                max_no2 = random.uniform(180, 250)
+            else:
+                avg_no2 = random.uniform(50, 100)
+                max_no2 = random.uniform(100, 150)
+            
+            # Summer months (Apr-Jun) have higher O3
+            if month in [4, 5, 6]:
+                avg_o3 = random.uniform(80, 140)
+                max_o3 = random.uniform(140, 200)
+            else:
+                avg_o3 = random.uniform(40, 80)
+                max_o3 = random.uniform(80, 120)
+            
+            data.append(HistoricalDataPoint(
+                year=year,
+                month=month,
+                avg_no2=round(avg_no2, 2),
+                avg_o3=round(avg_o3, 2),
+                max_no2=round(max_no2, 2),
+                max_o3=round(max_o3, 2)
+            ))
+    
+    return data
+
+@api_router.get("/seasonal-patterns", response_model=List[SeasonalPattern])
+async def get_seasonal_patterns():
+    """Get seasonal pollution patterns"""
+    return [
+        SeasonalPattern(
+            season="Winter (Dec-Feb)",
+            avg_no2=145.5,
+            avg_o3=55.2,
+            description="Highest NO₂ levels due to low wind speeds, temperature inversion, and increased biomass burning."
+        ),
+        SeasonalPattern(
+            season="Spring (Mar-May)",
+            avg_no2=85.3,
+            avg_o3=105.8,
+            description="Rising O₃ levels with increasing solar radiation. NO₂ decreases as weather improves."
+        ),
+        SeasonalPattern(
+            season="Summer (Jun-Aug)",
+            avg_no2=65.7,
+            avg_o3=125.4,
+            description="Peak O₃ formation due to high temperatures and intense sunlight. Monsoon brings temporary relief."
+        ),
+        SeasonalPattern(
+            season="Autumn (Sep-Nov)",
+            avg_no2=115.2,
+            avg_o3=75.6,
+            description="NO₂ levels rise as stubble burning begins. Cooler temperatures reduce O₃ formation."
+        )
+    ]
 
 # Include the router in the main app
 app.include_router(api_router)
