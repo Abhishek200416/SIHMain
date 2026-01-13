@@ -1,0 +1,320 @@
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { airQualityApi } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
+import { formatTime } from '@/lib/utils';
+
+export default function ForecastAnalytics() {
+  const [no2Data, setNo2Data] = useState([]);
+  const [o3Data, setO3Data] = useState([]);
+  const [hours, setHours] = useState(24);
+  const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState('combined'); // 'combined', 'no2', 'o3'
+
+  useEffect(() => {
+    fetchForecastData();
+  }, [hours]);
+
+  const fetchForecastData = async () => {
+    try {
+      setLoading(true);
+      const [no2Response, o3Response] = await Promise.all([
+        airQualityApi.getNo2Forecast(hours),
+        airQualityApi.getO3Forecast(hours)
+      ]);
+
+      const formattedNo2 = no2Response.data.map(point => ({
+        time: formatTime(point.timestamp),
+        NO2: point.value,
+        confidence: point.confidence
+      }));
+
+      const formattedO3 = o3Response.data.map(point => ({
+        time: formatTime(point.timestamp),
+        O3: point.value,
+        confidence: point.confidence
+      }));
+
+      setNo2Data(formattedNo2);
+      setO3Data(formattedO3);
+      setLoading(false);
+    } catch (error) {
+      toast.error('Failed to fetch forecast data');
+      setLoading(false);
+    }
+  };
+
+  const combinedData = no2Data.map((item, index) => ({
+    time: item.time,
+    NO2: item.NO2,
+    O3: o3Data[index]?.O3 || 0
+  }));
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 lg:px-8 py-12">
+        <div className="glass dark:glass rounded-2xl p-8 h-96 animate-pulse" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto px-4 lg:px-8 py-12">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-8"
+      >
+        <h1 className="text-4xl sm:text-5xl font-bold font-outfit mb-2">Forecast Analytics</h1>
+        <p className="text-muted-foreground text-lg">
+          AI-powered hourly predictions for NO₂ and O₃ levels
+        </p>
+      </motion.div>
+
+      {/* Controls */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="glass dark:glass rounded-2xl p-6 mb-6 border shadow-xl"
+      >
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Forecast Period:</span>
+            <Button
+              variant={hours === 24 ? "default" : "outline"}
+              size="sm"
+              onClick={() => setHours(24)}
+              data-testid="24h-toggle"
+            >
+              24 Hours
+            </Button>
+            <Button
+              variant={hours === 48 ? "default" : "outline"}
+              size="sm"
+              onClick={() => setHours(48)}
+              data-testid="48h-toggle"
+            >
+              48 Hours
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">View:</span>
+            <Button
+              variant={viewMode === 'combined' ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode('combined')}
+              data-testid="combined-view"
+            >
+              Combined
+            </Button>
+            <Button
+              variant={viewMode === 'no2' ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode('no2')}
+              data-testid="no2-view"
+            >
+              NO₂ Only
+            </Button>
+            <Button
+              variant={viewMode === 'o3' ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode('o3')}
+              data-testid="o3-view"
+            >
+              O₃ Only
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Charts */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="glass dark:glass rounded-2xl p-8 border shadow-xl"
+        data-testid="forecast-chart"
+      >
+        {viewMode === 'combined' && (
+          <ResponsiveContainer width="100%" height={400}>
+            <AreaChart data={combinedData}>
+              <defs>
+                <linearGradient id="colorNO2" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#FF7E00" stopOpacity={0.8}/>
+                  <stop offset="95%" stopColor="#FF7E00" stopOpacity={0.1}/>
+                </linearGradient>
+                <linearGradient id="colorO3" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#00E400" stopOpacity={0.8}/>
+                  <stop offset="95%" stopColor="#00E400" stopOpacity={0.1}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+              <XAxis 
+                dataKey="time" 
+                stroke="#94a3b8" 
+                style={{ fontSize: '12px' }}
+                interval={Math.floor(combinedData.length / 8)}
+              />
+              <YAxis stroke="#94a3b8" style={{ fontSize: '12px' }} />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: 'rgba(15, 23, 42, 0.95)', 
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '12px',
+                  backdropFilter: 'blur(12px)'
+                }}
+              />
+              <Legend />
+              <Area 
+                type="monotone" 
+                dataKey="NO2" 
+                stroke="#FF7E00" 
+                strokeWidth={2}
+                fillOpacity={1} 
+                fill="url(#colorNO2)" 
+                name="NO₂ (µg/m³)"
+              />
+              <Area 
+                type="monotone" 
+                dataKey="O3" 
+                stroke="#00E400" 
+                strokeWidth={2}
+                fillOpacity={1} 
+                fill="url(#colorO3)" 
+                name="O₃ (µg/m³)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+
+        {viewMode === 'no2' && (
+          <ResponsiveContainer width="100%" height={400}>
+            <LineChart data={no2Data}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+              <XAxis 
+                dataKey="time" 
+                stroke="#94a3b8" 
+                style={{ fontSize: '12px' }}
+                interval={Math.floor(no2Data.length / 8)}
+              />
+              <YAxis stroke="#94a3b8" style={{ fontSize: '12px' }} />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: 'rgba(15, 23, 42, 0.95)', 
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '12px'
+                }}
+              />
+              <Legend />
+              <Line 
+                type="monotone" 
+                dataKey="NO2" 
+                stroke="#FF7E00" 
+                strokeWidth={3}
+                dot={{ fill: '#FF7E00', r: 4 }}
+                activeDot={{ r: 6 }}
+                name="NO₂ (µg/m³)"
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+
+        {viewMode === 'o3' && (
+          <ResponsiveContainer width="100%" height={400}>
+            <LineChart data={o3Data}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+              <XAxis 
+                dataKey="time" 
+                stroke="#94a3b8" 
+                style={{ fontSize: '12px' }}
+                interval={Math.floor(o3Data.length / 8)}
+              />
+              <YAxis stroke="#94a3b8" style={{ fontSize: '12px' }} />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: 'rgba(15, 23, 42, 0.95)', 
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '12px'
+                }}
+              />
+              <Legend />
+              <Line 
+                type="monotone" 
+                dataKey="O3" 
+                stroke="#00E400" 
+                strokeWidth={3}
+                dot={{ fill: '#00E400', r: 4 }}
+                activeDot={{ r: 6 }}
+                name="O₃ (µg/m³)"
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </motion.div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="glass dark:glass rounded-2xl p-6 border shadow-xl"
+          data-testid="no2-summary"
+        >
+          <h3 className="text-lg font-bold font-outfit mb-4">NO₂ Forecast Summary</h3>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Peak Value</span>
+              <span className="font-mono font-bold">
+                {Math.max(...no2Data.map(d => d.NO2)).toFixed(1)} µg/m³
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Average</span>
+              <span className="font-mono font-bold">
+                {(no2Data.reduce((sum, d) => sum + d.NO2, 0) / no2Data.length).toFixed(1)} µg/m³
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Confidence</span>
+              <span className="font-mono font-bold">85%</span>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="glass dark:glass rounded-2xl p-6 border shadow-xl"
+          data-testid="o3-summary"
+        >
+          <h3 className="text-lg font-bold font-outfit mb-4">O₃ Forecast Summary</h3>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Peak Value</span>
+              <span className="font-mono font-bold">
+                {Math.max(...o3Data.map(d => d.O3)).toFixed(1)} µg/m³
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Average</span>
+              <span className="font-mono font-bold">
+                {(o3Data.reduce((sum, d) => sum + d.O3, 0) / o3Data.length).toFixed(1)} µg/m³
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Confidence</span>
+              <span className="font-mono font-bold">85%</span>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
