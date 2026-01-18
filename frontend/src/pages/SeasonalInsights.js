@@ -50,15 +50,41 @@ export default function SeasonalInsights() {
 
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   
-  const yearlyData = historicalData
-    .filter(d => d.year === selectedYear)
-    .map(d => ({
-      month: monthNames[d.month - 1],
-      'NO₂': d.avg_no2,
-      'O₃': d.avg_o3
-    }));
+  // Format data based on time range
+  const formatChartData = () => {
+    if (timeRange === 'months') {
+      return historicalData
+        .filter(d => d.year === selectedYear)
+        .map(d => ({
+          label: monthNames[d.month - 1],
+          'NO₂': d.avg_no2,
+          'O₃': d.avg_o3
+        }));
+    } else if (timeRange === 'weeks') {
+      return historicalData.map(d => {
+        const startDate = new Date(d.week_start);
+        return {
+          label: `${startDate.getMonth() + 1}/${startDate.getDate()}`,
+          'NO₂': d.avg_no2,
+          'O₃': d.avg_o3
+        };
+      }).reverse();
+    } else {
+      return historicalData.map(d => {
+        const date = new Date(d.date);
+        return {
+          label: `${date.getMonth() + 1}/${date.getDate()}`,
+          'NO₂': d.avg_no2,
+          'O₃': d.avg_o3
+        };
+      }).reverse();
+    }
+  };
 
-  const availableYears = [...new Set(historicalData.map(d => d.year))].sort((a, b) => b - a);
+  const chartData = formatChartData();
+  const availableYears = timeRange === 'months' 
+    ? [...new Set(historicalData.map(d => d.year))].sort((a, b) => b - a)
+    : [];
 
   const seasonIcons = {
     'Winter (Dec-Feb)': Snowflake,
