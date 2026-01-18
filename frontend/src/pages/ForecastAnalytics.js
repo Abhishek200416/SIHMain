@@ -62,6 +62,17 @@ export default function ForecastAnalytics() {
     O3: o3Data[index]?.O3 || 0
   }));
 
+  const exportData = () => {
+    const dataStr = JSON.stringify(combinedData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `forecast-data-${hours}h.json`;
+    link.click();
+    toast.success('Data exported successfully');
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 lg:px-8 py-12">
