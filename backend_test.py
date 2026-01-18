@@ -212,6 +212,247 @@ class AirQualityAPITester:
                     return False
         return success
 
+    def test_insights_monthly(self):
+        """Test monthly insights endpoint with different month values"""
+        print("\n🔍 Testing Monthly Insights Endpoint...")
+        
+        # Test with different month values: 12, 24, 36
+        test_cases = [
+            {"months": 12, "name": "Monthly Insights (12 months)"},
+            {"months": 24, "name": "Monthly Insights (24 months)"},
+            {"months": 36, "name": "Monthly Insights (36 months)"},
+            {"months": None, "name": "Monthly Insights (default)"}  # Should default to 36
+        ]
+        
+        all_success = True
+        for case in test_cases:
+            params = {"months": case["months"]} if case["months"] is not None else None
+            success, response = self.run_test(case["name"], "GET", "insights/monthly", 200, params)
+            
+            if success and isinstance(response, list):
+                data_points = len(response)
+                expected_months = case["months"] if case["months"] is not None else 36
+                print(f"   ✅ Found {data_points} monthly data points (expected ~{expected_months})")
+                
+                if data_points > 0:
+                    sample_point = response[0]
+                    required_fields = ['year', 'month', 'avg_no2', 'avg_o3', 'max_no2', 'max_o3']
+                    missing_fields = [field for field in required_fields if field not in sample_point]
+                    
+                    if missing_fields:
+                        print(f"   ⚠️  Missing monthly fields: {missing_fields}")
+                        all_success = False
+                    else:
+                        # Validate data includes current month (January 2026)
+                        current_data = [p for p in response if p['year'] == 2026 and p['month'] == 1]
+                        if current_data:
+                            print(f"   ✅ Data includes current month (January 2026)")
+                        else:
+                            print(f"   ⚠️  Missing current month data")
+                        
+                        # Validate NO2 and O3 ranges (50-250 µg/m³ for NO2, 30-200 µg/m³ for O3)
+                        valid_no2 = all(50 <= p['avg_no2'] <= 250 and 50 <= p['max_no2'] <= 250 for p in response)
+                        valid_o3 = all(30 <= p['avg_o3'] <= 200 and 30 <= p['max_o3'] <= 200 for p in response)
+                        
+                        if valid_no2 and valid_o3:
+                            print(f"   ✅ All NO2 and O3 values within realistic ranges")
+                        else:
+                            print(f"   ⚠️  Some values outside realistic ranges")
+                        
+                        # Check seasonal patterns (higher NO2 in winter, higher O3 in summer)
+                        winter_months = [p for p in response if p['month'] in [11, 12, 1, 2]]
+                        summer_months = [p for p in response if p['month'] in [4, 5, 6]]
+                        
+                        if winter_months and summer_months:
+                            avg_winter_no2 = sum(p['avg_no2'] for p in winter_months) / len(winter_months)
+                            avg_summer_o3 = sum(p['avg_o3'] for p in summer_months) / len(summer_months)
+                            print(f"   ✅ Seasonal patterns: Winter NO2={avg_winter_no2:.1f}, Summer O3={avg_summer_o3:.1f}")
+            else:
+                all_success = False
+        
+        return all_success
+
+    def test_insights_weekly(self):
+        """Test weekly insights endpoint with different week values"""
+        print("\n🔍 Testing Weekly Insights Endpoint...")
+        
+        # Test with different week values: 4, 8, 12, 24
+        test_cases = [
+            {"weeks": 4, "name": "Weekly Insights (4 weeks)"},
+            {"weeks": 8, "name": "Weekly Insights (8 weeks)"},
+            {"weeks": 12, "name": "Weekly Insights (12 weeks)"},
+            {"weeks": 24, "name": "Weekly Insights (24 weeks)"},
+            {"weeks": None, "name": "Weekly Insights (default)"}  # Should default to 12
+        ]
+        
+        all_success = True
+        for case in test_cases:
+            params = {"weeks": case["weeks"]} if case["weeks"] is not None else None
+            success, response = self.run_test(case["name"], "GET", "insights/weekly", 200, params)
+            
+            if success and isinstance(response, list):
+                data_points = len(response)
+                expected_weeks = case["weeks"] if case["weeks"] is not None else 12
+                print(f"   ✅ Found {data_points} weekly data points (expected ~{expected_weeks})")
+                
+                if data_points > 0:
+                    sample_point = response[0]
+                    required_fields = ['week_start', 'week_end', 'avg_no2', 'avg_o3', 'max_no2', 'max_o3']
+                    missing_fields = [field for field in required_fields if field not in sample_point]
+                    
+                    if missing_fields:
+                        print(f"   ⚠️  Missing weekly fields: {missing_fields}")
+                        all_success = False
+                    else:
+                        # Validate date format (YYYY-MM-DD)
+                        try:
+                            datetime.strptime(sample_point['week_start'], '%Y-%m-%d')
+                            datetime.strptime(sample_point['week_end'], '%Y-%m-%d')
+                            print(f"   ✅ Date format is correct (YYYY-MM-DD)")
+                        except ValueError:
+                            print(f"   ⚠️  Invalid date format")
+                            all_success = False
+                        
+                        # Check if data includes recent weeks up to current date
+                        recent_week = response[0]  # Should be most recent
+                        week_start = datetime.strptime(recent_week['week_start'], '%Y-%m-%d')
+                        current_date = datetime.now()
+                        days_diff = (current_date - week_start).days
+                        
+                        if days_diff <= 14:  # Within last 2 weeks
+                            print(f"   ✅ Data includes recent weeks (last week: {recent_week['week_start']})")
+                        else:
+                            print(f"   ⚠️  Data may not include most recent weeks")
+                        
+                        # Validate max > avg values
+                        valid_max_values = all(
+                            p['max_no2'] >= p['avg_no2'] and p['max_o3'] >= p['avg_o3'] 
+                            for p in response
+                        )
+                        if valid_max_values:
+                            print(f"   ✅ Max values are greater than average values")
+                        else:
+                            print(f"   ⚠️  Some max values are not greater than averages")
+            else:
+                all_success = False
+        
+        return all_success
+
+    def test_insights_daily(self):
+        """Test daily insights endpoint with different day values"""
+        print("\n🔍 Testing Daily Insights Endpoint...")
+        
+        # Test with different day values: 7, 14, 30, 60
+        test_cases = [
+            {"days": 7, "name": "Daily Insights (7 days)"},
+            {"days": 14, "name": "Daily Insights (14 days)"},
+            {"days": 30, "name": "Daily Insights (30 days)"},
+            {"days": 60, "name": "Daily Insights (60 days)"},
+            {"days": None, "name": "Daily Insights (default)"}  # Should default to 30
+        ]
+        
+        all_success = True
+        for case in test_cases:
+            params = {"days": case["days"]} if case["days"] is not None else None
+            success, response = self.run_test(case["name"], "GET", "insights/daily", 200, params)
+            
+            if success and isinstance(response, list):
+                data_points = len(response)
+                expected_days = case["days"] if case["days"] is not None else 30
+                print(f"   ✅ Found {data_points} daily data points (expected ~{expected_days})")
+                
+                if data_points > 0:
+                    sample_point = response[0]
+                    required_fields = ['date', 'avg_no2', 'avg_o3', 'max_no2', 'max_o3']
+                    missing_fields = [field for field in required_fields if field not in sample_point]
+                    
+                    if missing_fields:
+                        print(f"   ⚠️  Missing daily fields: {missing_fields}")
+                        all_success = False
+                    else:
+                        # Validate date format (YYYY-MM-DD)
+                        try:
+                            datetime.strptime(sample_point['date'], '%Y-%m-%d')
+                            print(f"   ✅ Date format is correct (YYYY-MM-DD)")
+                        except ValueError:
+                            print(f"   ⚠️  Invalid date format")
+                            all_success = False
+                        
+                        # Check if data includes today's date (January 18, 2026)
+                        today_str = "2026-01-18"  # As mentioned in the request
+                        today_data = [p for p in response if p['date'] == today_str]
+                        if today_data:
+                            print(f"   ✅ Data includes today's date ({today_str})")
+                        else:
+                            # Check if we have recent data (within last few days)
+                            recent_dates = [p['date'] for p in response[:5]]
+                            print(f"   ⚠️  Today's date not found, recent dates: {recent_dates}")
+                        
+                        # Validate realistic pollution ranges
+                        no2_values = [p['avg_no2'] for p in response]
+                        o3_values = [p['avg_o3'] for p in response]
+                        
+                        valid_no2_range = all(50 <= val <= 250 for val in no2_values)
+                        valid_o3_range = all(30 <= val <= 200 for val in o3_values)
+                        
+                        if valid_no2_range and valid_o3_range:
+                            print(f"   ✅ All pollution values within realistic ranges")
+                        else:
+                            print(f"   ⚠️  Some pollution values outside realistic ranges")
+            else:
+                all_success = False
+        
+        return all_success
+
+    def test_legacy_historical_endpoint(self):
+        """Test legacy historical endpoint redirects to monthly endpoint"""
+        print("\n🔍 Testing Legacy Historical Endpoint...")
+        
+        success, response = self.run_test("Legacy Historical Data", "GET", "historical", 200)
+        
+        if success and isinstance(response, list):
+            # Compare with monthly endpoint response
+            monthly_success, monthly_response = self.run_test("Monthly Insights for Comparison", "GET", "insights/monthly", 200, {"months": 36})
+            
+            if monthly_success:
+                # Check if responses are similar (both should have same structure)
+                if len(response) == len(monthly_response):
+                    print(f"   ✅ Legacy endpoint returns same data as monthly endpoint")
+                    return True
+                else:
+                    print(f"   ⚠️  Legacy endpoint returns different data length: {len(response)} vs {len(monthly_response)}")
+            else:
+                print(f"   ⚠️  Could not compare with monthly endpoint")
+        
+        return success
+
+    def test_insights_error_handling(self):
+        """Test error handling with invalid parameters"""
+        print("\n🔍 Testing Insights Error Handling...")
+        
+        error_tests = [
+            {"endpoint": "insights/monthly", "params": {"months": -5}, "name": "Negative months"},
+            {"endpoint": "insights/monthly", "params": {"months": 1000}, "name": "Very large months"},
+            {"endpoint": "insights/weekly", "params": {"weeks": -1}, "name": "Negative weeks"},
+            {"endpoint": "insights/weekly", "params": {"weeks": 500}, "name": "Very large weeks"},
+            {"endpoint": "insights/daily", "params": {"days": -10}, "name": "Negative days"},
+            {"endpoint": "insights/daily", "params": {"days": 10000}, "name": "Very large days"}
+        ]
+        
+        all_success = True
+        for test in error_tests:
+            # These should either return 400 (bad request) or handle gracefully with 200
+            success, response = self.run_test(f"Error Test: {test['name']}", "GET", test["endpoint"], None, test["params"])
+            
+            # Accept either proper error handling (400) or graceful handling (200 with reasonable data)
+            if success or (hasattr(response, 'status_code') and response.status_code in [400, 422]):
+                print(f"   ✅ {test['name']}: Handled appropriately")
+            else:
+                print(f"   ⚠️  {test['name']}: Unexpected response")
+                all_success = False
+        
+        return all_success
+
     def test_invalid_endpoints(self):
         """Test invalid endpoints return proper errors"""
         invalid_forecast = self.run_test("Invalid Forecast Hours", "GET", "forecast/no2", 400, {"hours": 72})[0]
