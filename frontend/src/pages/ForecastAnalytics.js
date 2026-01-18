@@ -305,8 +305,8 @@ export default function ForecastAnalytics() {
         )}
 
         {viewMode === 'no2' && (
-          <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={no2Data}>
+          <ResponsiveContainer width="100%" height={480}>
+            <LineChart data={no2Data} margin={{ bottom: 60, left: 10, right: 10, top: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
               <XAxis 
                 dataKey="time" 
