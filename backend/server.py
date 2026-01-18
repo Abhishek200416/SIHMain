@@ -12,6 +12,8 @@ from datetime import datetime, timezone, timedelta
 import random
 import requests
 import httpx
+from contextlib import asynccontextmanager
+import uvicorn
 from ml_models import (
     check_models_available, 
     get_model_status,
@@ -37,8 +39,15 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    yield
+    # Shutdown
+    client.close()
+
 # Create the main app without a prefix
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -777,6 +786,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
+if __name__ == '__main__':
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+

@@ -8,7 +8,6 @@ import HotspotMap from "@/pages/HotspotMap";
 import SeasonalInsights from "@/pages/SeasonalInsights";
 import Weather from "@/pages/Weather";
 import Alerts from "@/pages/Alerts";
-import { Toaster } from "@/components/ui/sonner";
 import "@/App.css";
 
 function App() {
@@ -26,7 +25,6 @@ function App() {
             <Route path="/alerts" element={<Alerts />} />
           </Route>
         </Routes>
-        <Toaster />
       </BrowserRouter>
     </ThemeProvider>
   );

@@ -29,6 +29,14 @@ function setupDevServer(config) {
     if (!devServer) throw new Error("webpack-dev-server not defined");
     devServer.app.use(express.json());
 
+    // Add CORS headers for all routes
+    devServer.app.use((req, res, next) => {
+      res.header('Access-Control-Allow-Origin', '*');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+      next();
+    });
+
     // CORS origin validation
     const isAllowedOrigin = (origin) => {
       if (!origin) return false;

@@ -46,7 +46,7 @@ export default function HotspotMap() {
         setModelsUnavailable(true);
       } else {
         console.error('Hotspots error:', error);
-        toast.error('Failed to fetch hotspot data');
+        // toast.error('Failed to fetch hotspot data');
       }
     }
   };
@@ -86,11 +86,7 @@ export default function HotspotMap() {
   if (modelsUnavailable) {
     return (
       <div className="container mx-auto px-4 lg:px-8 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass dark:glass rounded-2xl p-12 text-center border shadow-xl"
-        >
+        <div className="glass dark:glass rounded-2xl p-12 text-center border shadow-xl">
           <div className="flex flex-col items-center gap-6">
             <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
               <svg
@@ -123,7 +119,7 @@ export default function HotspotMap() {
               Try Again
             </button>
           </div>
-        </motion.div>
+        </div>
       </div>
     );
   }
@@ -131,24 +127,15 @@ export default function HotspotMap() {
   return (
     <div className="container mx-auto px-4 lg:px-8 py-12 overflow-x-hidden max-w-full">
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-8"
-      >
+      <div className="mb-8">
         <h1 className="text-4xl sm:text-5xl font-bold font-outfit mb-2">Pollution Hotspots</h1>
         <p className="text-muted-foreground text-lg">
           Area-wise air quality across Delhi NCR
         </p>
-      </motion.div>
+      </div>
 
       {/* Filter Controls */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="glass dark:glass rounded-2xl p-6 mb-6 border shadow-xl"
-      >
+      <div className="glass dark:glass rounded-2xl p-6 mb-6 border shadow-xl">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium mr-2">Filter by severity:</span>
           {severityOptions.map(option => (
@@ -166,13 +153,10 @@ export default function HotspotMap() {
             </button>
           ))}
         </div>
-      </motion.div>
+      </div>
 
       {/* Map */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
+      <div
         className="glass dark:glass rounded-2xl p-4 border shadow-xl overflow-hidden"
         data-testid="hotspot-map"
       >
@@ -187,7 +171,7 @@ export default function HotspotMap() {
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             />
-            <MapUpdater locations={filteredLocations} />
+
             {filteredLocations.map((location, index) => (
               <CircleMarker
                 key={index}
@@ -233,7 +217,7 @@ export default function HotspotMap() {
             ))}
           </MapContainer>
         </div>
-      </motion.div>
+      </div>
 
       {/* Legend */}
       <motion.div

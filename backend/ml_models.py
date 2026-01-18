@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import logging
 import numpy as np
+import joblib
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timezone, timedelta
 
@@ -37,51 +38,23 @@ def load_config() -> Dict[str, Any]:
         return {}
 
 def check_models_available() -> bool:
-    """Check if models are available and enabled"""
-    global models_config, models_loaded
-    
-    if not models_config:
-        load_config()
-    
-    # Check if models are enabled in config
-    models_enabled = models_config.get('models_enabled', False)
-    
-    if not models_enabled:
-        logger.info("ML models are disabled in configuration")
-        return False
-    
-    # Check if at least one model file exists
-    models_dir = Path(models_config.get('models_directory', '/app/backend/models'))
-    
-    if not models_dir.exists():
-        logger.warning(f"Models directory does not exist: {models_dir}")
-        return False
-    
-    # Check for at least one NO2 model
-    no2_models_config = models_config.get('no2_models', {})
-    default_site = models_config.get('default_site', 'site1')
-    
-    if default_site in no2_models_config:
-        model_path = ROOT_DIR / no2_models_config[default_site]
-        if model_path.exists():
-            return True
-    
-    logger.warning("No valid ML model files found")
-    return False
+    """Check if models are loaded and available"""
+    global models_loaded
 
-def load_pickle_model(file_path: Path) -> Optional[Any]:
-    """Load a pickle model file"""
+    return models_loaded
+
+def load_joblib_model(file_path: Path) -> Optional[Any]:
+    """Load a joblib model file"""
     try:
         if file_path.exists():
-            with open(file_path, 'rb') as f:
-                model = pickle.load(f)
-                logger.info(f"Loaded pickle model: {file_path}")
-                return model
+            model = joblib.load(file_path)
+            logger.info(f"Loaded joblib model: {file_path}")
+            return model
         else:
             logger.warning(f"Model file not found: {file_path}")
             return None
     except Exception as e:
-        logger.error(f"Error loading pickle model {file_path}: {e}")
+        logger.error(f"Error loading joblib model {file_path}: {e}. File may be corrupted or incompatible.")
         return None
 
 def load_keras_model(file_path: Path) -> Optional[Any]:
@@ -116,7 +89,7 @@ def load_all_models() -> bool:
             logger.info("ML models are disabled in configuration")
             return False
         
-        models_dir = Path(models_config.get('models_directory', '/app/backend/models'))
+        models_dir = ROOT_DIR / models_config.get('models_directory', 'models')
         
         if not models_dir.exists():
             logger.warning(f"Models directory does not exist: {models_dir}")
@@ -127,28 +100,31 @@ def load_all_models() -> bool:
         # Load NO2 models
         no2_models_config = models_config.get('no2_models', {})
         for site, rel_path in no2_models_config.items():
-            model_path = ROOT_DIR / rel_path
-            model = load_pickle_model(model_path)
+            model_path = models_dir / rel_path
+            model = load_joblib_model(model_path)
             if model:
                 no2_models[site] = model
                 success = True
-        
-        # Load O3 models
+
+        # Load O3 models and scalers together
         o3_models_config = models_config.get('o3_models', {})
-        for site, rel_path in o3_models_config.items():
-            model_path = ROOT_DIR / rel_path
-            model = load_keras_model(model_path)
-            if model:
-                o3_models[site] = model
-                success = True
-        
-        # Load O3 scalers
         o3_scalers_config = models_config.get('o3_scalers', {})
-        for site, rel_path in o3_scalers_config.items():
-            scaler_path = ROOT_DIR / rel_path
-            scaler = load_pickle_model(scaler_path)
-            if scaler:
+
+        for site in o3_models_config:
+            model_path = models_dir / o3_models_config[site]
+            scaler_path = models_dir / o3_scalers_config.get(site, "") if o3_scalers_config.get(site, "") else None
+
+            model = load_keras_model(model_path)
+            scaler = load_joblib_model(scaler_path) if scaler_path else None
+
+            if model and scaler:
+                o3_models[site] = model
                 o3_scalers[site] = scaler
+                success = True
+            elif model:
+                logger.warning(f"O3 model for {site} loaded but scaler failed to load. Skipping this site.")
+            else:
+                logger.warning(f"O3 model for {site} failed to load.")
         
         models_loaded = success
         

@@ -1,36 +1,36 @@
 {
-  "models_directory": "/app/backend/models",
+  "models_directory": "models",
   "no2_models": {
-    "site1": "models/no2_model_site1.pkl",
-    "site2": "models/no2_model_site2.pkl",
-    "site3": "models/no2_model_site3.pkl",
-    "site4": "models/no2_model_site4.pkl",
-    "site5": "models/no2_model_site5.pkl",
-    "site6": "models/no2_model_site6.pkl",
-    "site7": "models/no2_model_site7.pkl"
+    "site1": "no2_model_site1.pkl",
+    "site2": "no2_model_site2.pkl",
+    "site3": "no2_model_site3.pkl",
+    "site4": "no2_model_site4.pkl",
+    "site5": "no2_model_site5.pkl",
+    "site6": "no2_model_site6.pkl",
+    "site7": "no2_model_site7.pkl"
   },
   "o3_models": {
-    "site1": "models/o3_model_site1.keras",
-    "site2": "models/o3_model_site2.keras",
-    "site3": "models/o3_model_site3.keras",
-    "site4": "models/o3_model_site4.keras",
-    "site5": "models/o3_model_site5.keras",
-    "site6": "models/o3_model_site6.keras",
-    "site7": "models/o3_model_site7.keras"
+    "site1": "o3_model_site1.keras",
+    "site2": "o3_model_site2.keras",
+    "site3": "o3_model_site3.keras",
+    "site4": "o3_model_site4.keras",
+    "site5": "o3_model_site5.keras",
+    "site6": "o3_model_site6.keras",
+    "site7": "o3_model_site7.keras"
   },
   "o3_scalers": {
-    "site1": "models/o3_scaler_site1.pkl",
-    "site2": "models/o3_scaler_site2.pkl",
-    "site3": "models/o3_scaler_site3.pkl",
-    "site4": "models/o3_scaler_site4.pkl",
-    "site5": "models/o3_scaler_site5.pkl",
-    "site6": "models/o3_scaler_site6.pkl",
-    "site7": "models/o3_scaler_site7.pkl"
+    "site1": "o3_scaler_site1.pkl",
+    "site2": "o3_scaler_site2.pkl",
+    "site3": "o3_scaler_site3.pkl",
+    "site4": "o3_scaler_site4.pkl",
+    "site5": "o3_scaler_site5.pkl",
+    "site6": "o3_scaler_site6.pkl",
+    "site7": "o3_scaler_site7.pkl"
   },
   "results": {
     "hotspot_clusters": "results/hotspot_clusters.csv",
     "site_metrics": "results/site_wise_evaluation_metrics.csv"
   },
   "default_site": "site1",
-  "models_enabled": false
+  "models_enabled": true
 }
