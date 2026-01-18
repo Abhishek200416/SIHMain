@@ -22,6 +22,7 @@ export default function ForecastAnalytics() {
   const [hours, setHours] = useState(24);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('combined'); // 'combined', 'no2', 'o3'
+  const [modelsUnavailable, setModelsUnavailable] = useState(false);
 
   useEffect(() => {
     fetchForecastData();
@@ -30,6 +31,8 @@ export default function ForecastAnalytics() {
   const fetchForecastData = async () => {
     try {
       setLoading(true);
+      setModelsUnavailable(false);
+      
       const [no2Response, o3Response] = await Promise.all([
         airQualityApi.getNo2Forecast(hours),
         airQualityApi.getO3Forecast(hours)
@@ -51,7 +54,12 @@ export default function ForecastAnalytics() {
       setO3Data(formattedO3);
       setLoading(false);
     } catch (error) {
-      toast.error('Failed to fetch forecast data');
+      // Check if error is due to models unavailable
+      if (error.response && error.response.status === 503) {
+        setModelsUnavailable(true);
+      } else {
+        toast.error('Failed to fetch forecast data');
+      }
       setLoading(false);
     }
   };
