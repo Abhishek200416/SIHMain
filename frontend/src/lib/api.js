@@ -39,6 +39,21 @@ export const airQualityApi = {
     return response.data;
   },
 
+  getInsightsMonthly: async (months = 36) => {
+    const response = await axios.get(`${API}/insights/monthly?months=${months}`);
+    return response.data;
+  },
+
+  getInsightsWeekly: async (weeks = 12) => {
+    const response = await axios.get(`${API}/insights/weekly?weeks=${weeks}`);
+    return response.data;
+  },
+
+  getInsightsDaily: async (days = 30) => {
+    const response = await axios.get(`${API}/insights/daily?days=${days}`);
+    return response.data;
+  },
+
   getSeasonalPatterns: async () => {
     const response = await axios.get(`${API}/seasonal-patterns`);
     return response.data;
