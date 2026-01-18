@@ -332,6 +332,53 @@ agent_communication:
       4. Mobile menu functionality
       5. Footer links and layout
 
+  - agent: "main"
+    message: |
+      🚀 ML MODELS INTEGRATION COMPLETED
+      
+      Implemented ML model support for air quality forecasting:
+      
+      Backend Changes:
+      ✅ Created `/app/backend/ml_models.py` - ML model loading and prediction module
+      ✅ Created `/app/backend/model_config.json` - Configuration file for model paths
+      ✅ Modified `/app/backend/server.py` to integrate ML models:
+         - Added `/api/models/status` endpoint to check model availability
+         - Updated `/api/forecast/no2` to use ML models or return 503 if unavailable
+         - Updated `/api/forecast/o3` to use ML models or return 503 if unavailable
+         - Updated `/api/hotspots` to check ML model availability
+      ✅ Added dependencies: tensorflow==2.17.0, scikit-learn==1.5.2
+      ✅ Created `/app/backend/models/` directory for model files
+      ✅ Created `/app/backend/results/` directory for CSV files
+      
+      Frontend Changes:
+      ✅ Modified `/app/frontend/src/pages/ForecastAnalytics.js`:
+         - Added modelsUnavailable state
+         - Shows "We'll be back soon, our engineers are working on it" when models not available
+         - No mock data displayed
+      ✅ Modified `/app/frontend/src/pages/HotspotMap.js`:
+         - Added modelsUnavailable state
+         - Shows "We'll be back soon, our engineers are working on it" when models not available
+         - No mock data displayed
+      
+      Configuration:
+      - ML models are currently DISABLED (models_enabled: false in config)
+      - User needs to:
+        1. Upload model files to /app/backend/models/
+        2. Set models_enabled: true in /app/backend/model_config.json
+        3. Restart backend
+      
+      Documentation:
+      ✅ Created `/app/ML_MODELS_GUIDE.md` - Comprehensive guide for uploading models
+      ✅ Created `/app/backend/models/README.md` - Instructions for model directory
+      ✅ Created `/app/backend/results/README.md` - Instructions for results directory
+      
+      Current Behavior:
+      - Forecast page: Shows "We'll be back soon" message (no mock data)
+      - Hotspots page: Shows "We'll be back soon" message (no mock data)
+      - API returns 503 status with proper error message
+      
+      Ready for user to upload ML models and enable them.
+
   - agent: "testing"
     message: |
       BACKEND TESTING COMPLETED - 11/12 APIs WORKING
