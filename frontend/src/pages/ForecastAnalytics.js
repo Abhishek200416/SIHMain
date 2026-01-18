@@ -265,8 +265,12 @@ export default function ForecastAnalytics() {
               <XAxis 
                 dataKey="time" 
                 stroke="#94a3b8" 
-                style={{ fontSize: '12px' }}
-                interval={Math.floor(combinedData.length / 8)}
+                style={{ fontSize: '11px' }}
+                angle={-45}
+                textAnchor="end"
+                height={80}
+                interval="preserveStartEnd"
+                tick={{ fill: '#94a3b8' }}
               />
               <YAxis stroke="#94a3b8" style={{ fontSize: '12px' }} />
               <Tooltip 
