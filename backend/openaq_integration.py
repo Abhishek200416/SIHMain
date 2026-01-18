@@ -1,6 +1,6 @@
 """
 OpenAQ API Integration for Historical Air Quality Data
-Fetches real NO2 and O3 data for Delhi from OpenAQ
+Fetches real NO2 and O3 data for Delhi from OpenAQ v3 API
 """
 import httpx
 import os
@@ -13,7 +13,7 @@ import asyncio
 logger = logging.getLogger(__name__)
 
 OPENAQ_API_KEY = os.environ.get('OPENAQ_API_KEY', '')
-OPENAQ_BASE_URL = "https://api.openaq.org/v2"
+OPENAQ_BASE_URL = "https://api.openaq.org/v3"
 
 # Delhi coordinates (approximate center)
 DELHI_LAT = 28.6139
@@ -21,42 +21,89 @@ DELHI_LON = 77.2090
 DELHI_RADIUS = 50000  # 50km radius to cover Delhi NCR
 
 
-async def fetch_openaq_measurements(
-    parameter: str,
+async def fetch_delhi_sensors(parameter: str) -> List[int]:
+    """
+    Fetch sensor IDs for a specific parameter in Delhi
+    
+    Args:
+        parameter: 'no2' or 'o3'
+    
+    Returns:
+        List of sensor IDs
+    """
+    try:
+        headers = {
+            'X-API-Key': OPENAQ_API_KEY,
+            'Accept': 'application/json'
+        }
+        
+        params = {
+            'country': 'IN',
+            'city': 'Delhi',
+            'parameter': parameter,
+            'limit': 100
+        }
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                f"{OPENAQ_BASE_URL}/locations",
+                params=params,
+                headers=headers
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            # Extract sensor IDs from locations
+            sensor_ids = []
+            for location in data.get('results', []):
+                for sensor in location.get('sensors', []):
+                    if sensor.get('parameter', {}).get('name', '').lower() == parameter.lower():
+                        sensor_ids.append(sensor['id'])
+            
+            logger.info(f"Found {len(sensor_ids)} {parameter} sensors in Delhi")
+            return sensor_ids[:5]  # Limit to first 5 sensors to avoid too many requests
+            
+    except httpx.HTTPError as e:
+        logger.error(f"OpenAQ API error fetching sensors for {parameter}: {e}")
+        return []
+    except Exception as e:
+        logger.error(f"Unexpected error fetching sensors: {e}")
+        return []
+
+
+async def fetch_sensor_measurements(
+    sensor_id: int,
     date_from: str,
     date_to: str,
     limit: int = 10000
 ) -> List[Dict]:
     """
-    Fetch measurements from OpenAQ API for Delhi
+    Fetch measurements from a specific sensor
     
     Args:
-        parameter: 'no2' or 'o3'
-        date_from: Start date in ISO format (YYYY-MM-DD)
-        date_to: End date in ISO format (YYYY-MM-DD)
-        limit: Max number of records to fetch
+        sensor_id: Sensor ID
+        date_from: Start date in ISO format
+        date_to: End date in ISO format
+        limit: Max number of records
     
     Returns:
         List of measurement dictionaries
     """
     try:
         headers = {
-            'X-API-Key': OPENAQ_API_KEY
+            'X-API-Key': OPENAQ_API_KEY,
+            'Accept': 'application/json'
         }
         
         params = {
-            'parameter': parameter,
-            'country': 'IN',
-            'city': 'Delhi',
-            'date_from': date_from,
-            'date_to': date_to,
-            'limit': limit,
-            'order_by': 'datetime'
+            'datetime_from': f"{date_from}T00:00:00Z",
+            'datetime_to': f"{date_to}T23:59:59Z",
+            'limit': limit
         }
         
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(
-                f"{OPENAQ_BASE_URL}/measurements",
+                f"{OPENAQ_BASE_URL}/sensors/{sensor_id}/measurements",
                 params=params,
                 headers=headers
             )
@@ -64,14 +111,58 @@ async def fetch_openaq_measurements(
             data = response.json()
             
             results = data.get('results', [])
-            logger.info(f"Fetched {len(results)} {parameter} measurements from OpenAQ")
+            logger.info(f"Fetched {len(results)} measurements from sensor {sensor_id}")
             return results
             
     except httpx.HTTPError as e:
-        logger.error(f"OpenAQ API error for {parameter}: {e}")
+        logger.error(f"OpenAQ API error for sensor {sensor_id}: {e}")
         return []
     except Exception as e:
-        logger.error(f"Unexpected error fetching {parameter} from OpenAQ: {e}")
+        logger.error(f"Unexpected error fetching measurements: {e}")
+        return []
+
+
+async def fetch_openaq_measurements(
+    parameter: str,
+    date_from: str,
+    date_to: str
+) -> List[Dict]:
+    """
+    Fetch measurements from OpenAQ v3 API for Delhi
+    
+    Args:
+        parameter: 'no2' or 'o3'
+        date_from: Start date in ISO format (YYYY-MM-DD)
+        date_to: End date in ISO format (YYYY-MM-DD)
+    
+    Returns:
+        List of measurement dictionaries
+    """
+    try:
+        # First, get sensor IDs for the parameter in Delhi
+        sensor_ids = await fetch_delhi_sensors(parameter)
+        
+        if not sensor_ids:
+            logger.warning(f"No sensors found for {parameter} in Delhi")
+            return []
+        
+        # Fetch measurements from all sensors in parallel
+        all_measurements = []
+        tasks = [
+            fetch_sensor_measurements(sensor_id, date_from, date_to)
+            for sensor_id in sensor_ids
+        ]
+        
+        results = await asyncio.gather(*tasks)
+        
+        for measurements in results:
+            all_measurements.extend(measurements)
+        
+        logger.info(f"Total {len(all_measurements)} {parameter} measurements fetched")
+        return all_measurements
+        
+    except Exception as e:
+        logger.error(f"Error fetching {parameter} measurements: {e}")
         return []
 
 
@@ -86,15 +177,25 @@ def aggregate_to_daily(measurements: List[Dict]) -> Dict[str, Dict]:
     
     for m in measurements:
         try:
-            # Parse datetime
-            dt = datetime.fromisoformat(m['date']['utc'].replace('Z', '+00:00'))
+            # Parse datetime from v3 API format
+            datetime_obj = m.get('datetime', {})
+            if isinstance(datetime_obj, dict):
+                dt_str = datetime_obj.get('utc', '') or datetime_obj.get('local', '')
+            else:
+                dt_str = str(datetime_obj)
+            
+            if not dt_str:
+                continue
+                
+            dt = datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
             date_str = dt.strftime('%Y-%m-%d')
             
-            value = float(m['value'])
-            daily_data[date_str]['values'].append(value)
-            daily_data[date_str]['max'] = max(daily_data[date_str]['max'], value)
+            value = float(m.get('value', 0))
+            if value > 0:  # Only include positive values
+                daily_data[date_str]['values'].append(value)
+                daily_data[date_str]['max'] = max(daily_data[date_str]['max'], value)
         except (KeyError, ValueError, TypeError) as e:
-            logger.warning(f"Error parsing measurement: {e}")
+            logger.debug(f"Error parsing measurement: {e}")
             continue
     
     # Calculate averages
