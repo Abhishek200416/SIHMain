@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { Toaster } from "@/components/ui/sonner";
 import Layout from "@/components/Layout";
 import LandingPage from "@/pages/LandingPage";
 import Dashboard from "@/pages/Dashboard";
@@ -25,6 +26,7 @@ function App() {
             <Route path="/alerts" element={<Alerts />} />
           </Route>
         </Routes>
+        <Toaster />
       </BrowserRouter>
     </ThemeProvider>
   );
