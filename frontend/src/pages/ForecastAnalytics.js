@@ -102,52 +102,139 @@ export default function ForecastAnalytics() {
         transition={{ delay: 0.1 }}
         className="glass dark:glass rounded-2xl p-6 mb-6 border shadow-xl"
       >
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">Forecast Period:</span>
-            <Button
-              variant={hours === 24 ? "default" : "outline"}
-              size="sm"
-              onClick={() => setHours(24)}
-              data-testid="24h-toggle"
-            >
-              24 Hours
-            </Button>
-            <Button
-              variant={hours === 48 ? "default" : "outline"}
-              size="sm"
-              onClick={() => setHours(48)}
-              data-testid="48h-toggle"
-            >
-              48 Hours
-            </Button>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-medium">Forecast Period:</span>
+              <Button
+                variant={hours === 24 ? "default" : "outline"}
+                size="sm"
+                onClick={() => setHours(24)}
+                data-testid="24h-toggle"
+              >
+                24 Hours
+              </Button>
+              <Button
+                variant={hours === 48 ? "default" : "outline"}
+                size="sm"
+                onClick={() => setHours(48)}
+                data-testid="48h-toggle"
+              >
+                48 Hours
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-medium">View:</span>
+              <Button
+                variant={viewMode === 'combined' ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode('combined')}
+                data-testid="combined-view"
+              >
+                Combined
+              </Button>
+              <Button
+                variant={viewMode === 'no2' ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode('no2')}
+                data-testid="no2-view"
+              >
+                NO₂ Only
+              </Button>
+              <Button
+                variant={viewMode === 'o3' ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode('o3')}
+                data-testid="o3-view"
+              >
+                O₃ Only
+              </Button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">View:</span>
-            <Button
-              variant={viewMode === 'combined' ? "default" : "outline"}
-              size="sm"
-              onClick={() => setViewMode('combined')}
-              data-testid="combined-view"
-            >
-              Combined
-            </Button>
-            <Button
-              variant={viewMode === 'no2' ? "default" : "outline"}
-              size="sm"
-              onClick={() => setViewMode('no2')}
-              data-testid="no2-view"
-            >
-              NO₂ Only
-            </Button>
-            <Button
-              variant={viewMode === 'o3' ? "default" : "outline"}
-              size="sm"
-              onClick={() => setViewMode('o3')}
-              data-testid="o3-view"
-            >
-              O₃ Only
+          {/* Accessible Data Actions */}
+          <div className="flex items-center gap-2 flex-wrap border-t pt-4">
+            <span className="text-sm font-medium text-muted-foreground">Data Actions:</span>
+            
+            {/* Modal to view data in table format */}
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Eye className="w-4 h-4" />
+                  View Data Table
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl font-outfit">Forecast Data - {hours} Hours</DialogTitle>
+                  <DialogDescription>
+                    Detailed tabular view of NO₂ and O₃ forecast data with timestamps
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="mt-4">
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="font-bold">Time</TableHead>
+                          <TableHead className="font-bold text-right">NO₂ (µg/m³)</TableHead>
+                          <TableHead className="font-bold text-right">O₃ (µg/m³)</TableHead>
+                          <TableHead className="font-bold text-right">Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {combinedData.map((row, index) => (
+                          <TableRow key={index} className="hover:bg-muted/50">
+                            <TableCell className="font-medium">{row.time}</TableCell>
+                            <TableCell className="text-right font-mono">{row.NO2.toFixed(1)}</TableCell>
+                            <TableCell className="text-right font-mono">{row.O3.toFixed(1)}</TableCell>
+                            <TableCell className="text-right font-mono font-bold">
+                              {(row.NO2 + row.O3).toFixed(1)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  
+                  <div className="mt-4 p-4 bg-muted/30 rounded-lg">
+                    <h4 className="font-semibold mb-2">Summary Statistics</h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">NO₂ Average: </span>
+                        <span className="font-mono font-bold">
+                          {(combinedData.reduce((sum, d) => sum + d.NO2, 0) / combinedData.length).toFixed(1)} µg/m³
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">O₃ Average: </span>
+                        <span className="font-mono font-bold">
+                          {(combinedData.reduce((sum, d) => sum + d.O3, 0) / combinedData.length).toFixed(1)} µg/m³
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">NO₂ Peak: </span>
+                        <span className="font-mono font-bold">
+                          {Math.max(...combinedData.map(d => d.NO2)).toFixed(1)} µg/m³
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">O₃ Peak: </span>
+                        <span className="font-mono font-bold">
+                          {Math.max(...combinedData.map(d => d.O3)).toFixed(1)} µg/m³
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Button variant="outline" size="sm" className="gap-2" onClick={exportData}>
+              <Download className="w-4 h-4" />
+              Export JSON
             </Button>
           </div>
         </div>
