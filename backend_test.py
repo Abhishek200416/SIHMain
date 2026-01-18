@@ -507,6 +507,11 @@ def main():
         tester.test_alerts,
         tester.test_historical_data,
         tester.test_seasonal_patterns,
+        tester.test_insights_monthly,
+        tester.test_insights_weekly,
+        tester.test_insights_daily,
+        tester.test_legacy_historical_endpoint,
+        tester.test_insights_error_handling,
         tester.test_invalid_endpoints
     ]
     
