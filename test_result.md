@@ -110,39 +110,108 @@ user_problem_statement: |
 backend:
   - task: "Real WAQI API Integration for Current Air Quality"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/backend/server.py"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Integrated WAQI API using httpx for fetching real NO2 and O3 data from Delhi stations"
+      - working: false
+        agent: "testing"
+        comment: "CRITICAL: API returns 520 error due to invalid WAQI API token. Current token returns 'Invalid key' error. API integration code is correct - tested with demo token successfully. Need valid WAQI token from https://aqicn.org/data-platform/token/"
 
   - task: "Real WAQI API Integration for Hotspots"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Implemented multi-station WAQI API calls for Delhi hotspots with fallback to mock data"
+      - working: true
+        agent: "testing"
+        comment: "✅ WORKING: Returns 10 Delhi stations with correct coordinates, NO2/O3 values, and severity categories. Fallback to mock data works when WAQI API fails. All required fields present."
 
   - task: "Open-Meteo Weather API Integration"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "medium"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Weather API was already integrated, should be working"
+      - working: true
+        agent: "testing"
+        comment: "✅ WORKING: Returns complete weather data including temperature, humidity, wind speed/direction, solar radiation, pressure, and cloud cover. All fields present and valid."
+
+  - task: "NO2 Forecast API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ WORKING: Both 24h and 48h forecasts return proper data with timestamps, values, and confidence levels. Proper error handling for invalid hours parameter."
+
+  - task: "O3 Forecast API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ WORKING: Both 24h and 48h forecasts return proper data with sunlight-based O3 variations. Proper error handling for invalid hours parameter."
+
+  - task: "Alerts API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ WORKING: Returns alerts with proper severity levels, titles, messages, and recommendations based on pollution levels."
+
+  - task: "Historical Data API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ WORKING: Returns 60 data points (5 years × 12 months) with seasonal variations in NO2 and O3 levels."
+
+  - task: "Seasonal Patterns API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ WORKING: Returns 4 seasonal patterns with accurate descriptions of Delhi's pollution cycles."
 
 frontend:
   - task: "Remove Emergent Branding"
