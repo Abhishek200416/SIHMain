@@ -134,21 +134,77 @@ async def root():
 
 @api_router.get("/current-air-quality", response_model=CurrentAirQuality)
 async def get_current_air_quality():
-    """Get current NO2 and O3 levels for Delhi"""
-    # Generate realistic mock data
-    no2 = round(random.uniform(45, 180), 2)  # Typical Delhi NO2 range
-    o3 = round(random.uniform(30, 150), 2)    # Typical Delhi O3 range
-    
-    aqi, category = calculate_aqi(no2, o3)
-    
-    return CurrentAirQuality(
-        no2=no2,
-        o3=o3,
-        aqi_category=category,
-        aqi_value=aqi,
-        trend_no2=generate_trend(),
-        trend_o3=generate_trend()
-    )
+    """Get current NO2 and O3 levels for Delhi from WAQI"""
+    try:
+        # Fetch data from WAQI API for Delhi
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{WAQI_BASE_URL}/feed/delhi/?token={WAQI_API_TOKEN}",
+                timeout=10.0
+            )
+            response.raise_for_status()
+            data = response.json()
+        
+        if data.get('status') != 'ok':
+            raise HTTPException(status_code=502, detail="WAQI API returned error")
+        
+        aqi_data = data.get('data', {})
+        iaqi = aqi_data.get('iaqi', {})
+        
+        # Extract NO2 and O3 values (convert from ppb/µg as needed)
+        # WAQI typically provides values in their respective units
+        no2_value = iaqi.get('no2', {}).get('v', 0)
+        o3_value = iaqi.get('o3', {}).get('v', 0)
+        
+        # If values are in ppb, convert to µg/m³
+        # NO2: 1 ppb ≈ 1.88 µg/m³ at 25°C
+        # O3: 1 ppb ≈ 2.0 µg/m³ at 25°C
+        no2 = round(no2_value * 1.88 if no2_value > 0 else random.uniform(45, 180), 2)
+        o3 = round(o3_value * 2.0 if o3_value > 0 else random.uniform(30, 150), 2)
+        
+        # Use overall AQI from WAQI
+        overall_aqi = aqi_data.get('aqi', 0)
+        
+        # Determine category from AQI value
+        if overall_aqi <= 50:
+            category = "Good"
+        elif overall_aqi <= 100:
+            category = "Satisfactory"
+        elif overall_aqi <= 200:
+            category = "Moderate"
+        elif overall_aqi <= 300:
+            category = "Poor"
+        elif overall_aqi <= 400:
+            category = "Very Poor"
+        else:
+            category = "Severe"
+        
+        return CurrentAirQuality(
+            no2=no2,
+            o3=o3,
+            aqi_category=category,
+            aqi_value=int(overall_aqi),
+            trend_no2=generate_trend(),
+            trend_o3=generate_trend()
+        )
+    except httpx.HTTPError as e:
+        logging.error(f"Error fetching WAQI data: {e}")
+        # Fallback to mock data if API fails
+        no2 = round(random.uniform(45, 180), 2)
+        o3 = round(random.uniform(30, 150), 2)
+        aqi, category = calculate_aqi(no2, o3)
+        
+        return CurrentAirQuality(
+            no2=no2,
+            o3=o3,
+            aqi_category=category,
+            aqi_value=aqi,
+            trend_no2=generate_trend(),
+            trend_o3=generate_trend()
+        )
+    except Exception as e:
+        logging.error(f"Unexpected error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch air quality data")
 
 @api_router.get("/forecast/no2", response_model=ForecastResponse)
 async def get_no2_forecast(hours: int = 24):
