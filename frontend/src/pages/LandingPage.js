@@ -195,9 +195,14 @@ export default function LandingPage() {
             transition={{ duration: 0.6 }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl sm:text-5xl font-bold font-outfit mb-4">
+            <motion.h2
+              initial={{ scale: 0.9 }}
+              whileInView={{ scale: 1 }}
+              viewport={{ once: true }}
+              className="text-4xl sm:text-5xl font-bold font-outfit mb-4"
+            >
               Why Delhi AQI?
-            </h2>
+            </motion.h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Comprehensive air quality monitoring powered by satellite data and AI forecasting
             </p>
@@ -213,15 +218,37 @@ export default function LandingPage() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.6, delay: index * 0.1 }}
-                  whileHover={{ scale: 1.02, y: -5 }}
-                  className="glass dark:glass rounded-2xl p-6 border hover:border-white/30 transition-all shadow-xl"
+                  whileHover={{ scale: 1.05, y: -10 }}
+                  className="glass dark:glass rounded-2xl p-6 border hover:border-primary/50 transition-all shadow-xl relative overflow-hidden group"
                   data-testid={`feature-card-${index}`}
                 >
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-aqi-good to-aqi-moderate flex items-center justify-center mb-4">
-                    <Icon className="w-6 h-6 text-white" />
+                  {/* Hover gradient effect */}
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-br from-aqi-good/10 to-aqi-moderate/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                    initial={false}
+                  />
+                  
+                  <div className="relative z-10">
+                    <motion.div
+                      whileHover={{ rotate: 360, scale: 1.1 }}
+                      transition={{ duration: 0.6 }}
+                      className="w-12 h-12 rounded-xl bg-gradient-to-br from-aqi-good to-aqi-moderate flex items-center justify-center mb-4 shadow-lg"
+                    >
+                      <Icon className="w-6 h-6 text-white" />
+                    </motion.div>
+                    <h3 className="text-xl font-bold font-outfit mb-2">{feature.title}</h3>
+                    <p className="text-muted-foreground">{feature.description}</p>
                   </div>
-                  <h3 className="text-xl font-bold font-outfit mb-2">{feature.title}</h3>
-                  <p className="text-muted-foreground">{feature.description}</p>
+
+                  {/* Floating particle effect on hover */}
+                  <motion.div
+                    className="absolute -top-2 -right-2 w-8 h-8 bg-primary/20 rounded-full blur-lg opacity-0 group-hover:opacity-100"
+                    animate={{
+                      scale: [1, 1.5, 1],
+                      opacity: [0, 0.5, 0]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
                 </motion.div>
               );
             })}
