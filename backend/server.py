@@ -19,6 +19,11 @@ from ml_models import (
     predict_o3_forecast,
     load_all_models
 )
+from openaq_integration import (
+    get_historical_data_monthly,
+    get_historical_data_weekly,
+    get_historical_data_daily
+)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
