@@ -12,6 +12,13 @@ from datetime import datetime, timezone, timedelta
 import random
 import requests
 import httpx
+from ml_models import (
+    check_models_available, 
+    get_model_status,
+    predict_no2_forecast,
+    predict_o3_forecast,
+    load_all_models
+)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
