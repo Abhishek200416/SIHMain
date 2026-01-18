@@ -106,6 +106,21 @@ class HistoricalDataPoint(BaseModel):
     max_no2: float
     max_o3: float
 
+class WeeklyDataPoint(BaseModel):
+    week_start: str
+    week_end: str
+    avg_no2: float
+    avg_o3: float
+    max_no2: float
+    max_o3: float
+
+class DailyDataPoint(BaseModel):
+    date: str
+    avg_no2: float
+    avg_o3: float
+    max_no2: float
+    max_o3: float
+
 class SeasonalPattern(BaseModel):
     season: str
     avg_no2: float
