@@ -485,3 +485,35 @@ agent_communication:
       
       The Delhi Air Quality Intelligence app is production-ready with excellent user experience!
 
+  - agent: "main"
+    message: |
+      FORECAST PAGE IMPROVEMENTS COMPLETED ✅
+      
+      Fixed X-axis visibility issues and added accessible modal:
+      
+      Changes Made:
+      1. Fixed X-axis label overlapping:
+         - Labels now angled at -45 degrees for better readability
+         - Increased chart height from 400px to 480px
+         - Added proper margins (bottom: 60px) to accommodate angled labels
+         - Used "preserveStartEnd" interval for optimal label display
+      
+      2. Added Accessible Data Modal:
+         - "View Data Table" button opens a modal with tabular data view
+         - Shows all forecast data in a clean, scrollable table format
+         - Includes Time, NO₂, O₃, and Total columns
+         - Summary statistics panel shows averages and peak values
+         - Fully accessible and keyboard-navigable
+      
+      3. Added Data Export:
+         - "Export JSON" button to download forecast data
+         - Downloads as formatted JSON file with timestamp
+      
+      All improvements tested and working:
+      ✅ X-axis labels now clearly visible and not overlapping
+      ✅ Modal opens smoothly with complete data table
+      ✅ Export functionality working
+      ✅ Responsive design maintained
+      
+      Ready for testing if needed.
+
