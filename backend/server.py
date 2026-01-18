@@ -573,14 +573,28 @@ async def get_alerts():
     
     return alerts
 
-@api_router.get("/historical", response_model=List[HistoricalDataPoint])
-async def get_historical_data():
-    """Get monthly historical data for last 5 years"""
-    data = []
-    current_year = datetime.now().year
-    
-    for year in range(current_year - 4, current_year + 1):
-        for month in range(1, 13):
+@api_router.get("/insights/monthly", response_model=List[HistoricalDataPoint])
+async def get_insights_monthly(months: int = 36):
+    """Get monthly historical data from OpenAQ (real-time data)"""
+    try:
+        # Try to get real data from OpenAQ
+        data = await get_historical_data_monthly(months)
+        
+        # If OpenAQ returns data, use it
+        if data:
+            logger.info(f"Successfully fetched {len(data)} months of real data from OpenAQ")
+            return data
+        
+        # Fallback to algorithmic data if OpenAQ fails
+        logger.warning("OpenAQ data unavailable, using fallback algorithmic data")
+        fallback_data = []
+        current_date = datetime.now()
+        
+        for i in range(months):
+            target_date = current_date - timedelta(days=i * 30)
+            year = target_date.year
+            month = target_date.month
+            
             # Winter months (Nov-Feb) have higher NO2
             if month in [11, 12, 1, 2]:
                 avg_no2 = random.uniform(100, 180)
@@ -597,7 +611,7 @@ async def get_historical_data():
                 avg_o3 = random.uniform(40, 80)
                 max_o3 = random.uniform(80, 120)
             
-            data.append(HistoricalDataPoint(
+            fallback_data.append(HistoricalDataPoint(
                 year=year,
                 month=month,
                 avg_no2=round(avg_no2, 2),
@@ -605,8 +619,115 @@ async def get_historical_data():
                 max_no2=round(max_no2, 2),
                 max_o3=round(max_o3, 2)
             ))
-    
-    return data
+        
+        return fallback_data
+        
+    except Exception as e:
+        logger.error(f"Error in insights/monthly endpoint: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch monthly insights data")
+
+@api_router.get("/insights/weekly", response_model=List[WeeklyDataPoint])
+async def get_insights_weekly(weeks: int = 12):
+    """Get weekly historical data from OpenAQ (real-time data)"""
+    try:
+        data = await get_historical_data_weekly(weeks)
+        
+        if data:
+            logger.info(f"Successfully fetched {len(data)} weeks of real data from OpenAQ")
+            return data
+        
+        # Fallback to algorithmic data
+        logger.warning("OpenAQ data unavailable, using fallback algorithmic data")
+        fallback_data = []
+        current_date = datetime.now()
+        
+        for i in range(weeks):
+            week_start = current_date - timedelta(weeks=i+1)
+            week_end = week_start + timedelta(days=6)
+            
+            # Seasonal variation
+            month = week_start.month
+            if month in [11, 12, 1, 2]:
+                avg_no2 = random.uniform(100, 180)
+                max_no2 = random.uniform(180, 250)
+            else:
+                avg_no2 = random.uniform(50, 100)
+                max_no2 = random.uniform(100, 150)
+            
+            if month in [4, 5, 6]:
+                avg_o3 = random.uniform(80, 140)
+                max_o3 = random.uniform(140, 200)
+            else:
+                avg_o3 = random.uniform(40, 80)
+                max_o3 = random.uniform(80, 120)
+            
+            fallback_data.append(WeeklyDataPoint(
+                week_start=week_start.strftime('%Y-%m-%d'),
+                week_end=week_end.strftime('%Y-%m-%d'),
+                avg_no2=round(avg_no2, 2),
+                avg_o3=round(avg_o3, 2),
+                max_no2=round(max_no2, 2),
+                max_o3=round(max_o3, 2)
+            ))
+        
+        return fallback_data
+        
+    except Exception as e:
+        logger.error(f"Error in insights/weekly endpoint: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch weekly insights data")
+
+@api_router.get("/insights/daily", response_model=List[DailyDataPoint])
+async def get_insights_daily(days: int = 30):
+    """Get daily historical data from OpenAQ (real-time data)"""
+    try:
+        data = await get_historical_data_daily(days)
+        
+        if data:
+            logger.info(f"Successfully fetched {len(data)} days of real data from OpenAQ")
+            return data
+        
+        # Fallback to algorithmic data
+        logger.warning("OpenAQ data unavailable, using fallback algorithmic data")
+        fallback_data = []
+        current_date = datetime.now()
+        
+        for i in range(days):
+            target_date = current_date - timedelta(days=i)
+            
+            # Seasonal variation
+            month = target_date.month
+            if month in [11, 12, 1, 2]:
+                avg_no2 = random.uniform(100, 180)
+                max_no2 = random.uniform(180, 250)
+            else:
+                avg_no2 = random.uniform(50, 100)
+                max_no2 = random.uniform(100, 150)
+            
+            if month in [4, 5, 6]:
+                avg_o3 = random.uniform(80, 140)
+                max_o3 = random.uniform(140, 200)
+            else:
+                avg_o3 = random.uniform(40, 80)
+                max_o3 = random.uniform(80, 120)
+            
+            fallback_data.append(DailyDataPoint(
+                date=target_date.strftime('%Y-%m-%d'),
+                avg_no2=round(avg_no2, 2),
+                avg_o3=round(avg_o3, 2),
+                max_no2=round(max_no2, 2),
+                max_o3=round(max_o3, 2)
+            ))
+        
+        return fallback_data
+        
+    except Exception as e:
+        logger.error(f"Error in insights/daily endpoint: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch daily insights data")
+
+@api_router.get("/historical", response_model=List[HistoricalDataPoint])
+async def get_historical_data():
+    """Get monthly historical data (legacy endpoint, redirects to /insights/monthly)"""
+    return await get_insights_monthly(months=36)
 
 @api_router.get("/seasonal-patterns", response_model=List[SeasonalPattern])
 async def get_seasonal_patterns():
