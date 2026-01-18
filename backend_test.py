@@ -100,6 +100,15 @@ class AirQualityAPITester:
                 return False
             else:
                 print(f"   ✅ All required fields present")
+                # Validate data types and ranges
+                if response.get('no2', 0) > 0 and response.get('o3', 0) > 0:
+                    print(f"   ✅ Real pollution data: NO2={response['no2']}µg/m³, O3={response['o3']}µg/m³")
+                else:
+                    print(f"   ⚠️  Using fallback data due to API issues")
+        else:
+            # Check if it's a WAQI API token issue
+            if "Failed to fetch air quality data" in str(response):
+                print(f"   ⚠️  WAQI API integration issue - likely invalid token")
         return success
 
     def test_no2_forecast(self):
