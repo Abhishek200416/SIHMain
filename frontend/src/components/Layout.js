@@ -5,13 +5,13 @@ import Footer from './Footer';
 
 export default function Layout() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col overflow-x-hidden max-w-[100vw]">
       <Navigation />
       <motion.main
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="pt-20 flex-1"
+        className="pt-20 flex-1 overflow-x-hidden w-full"
       >
         <Outlet />
       </motion.main>
