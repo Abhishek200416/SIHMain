@@ -73,7 +73,7 @@ export default function HotspotMap() {
   }
 
   return (
-    <div className="container mx-auto px-4 lg:px-8 py-12">
+    <div className="container mx-auto px-4 lg:px-8 py-12 overflow-x-hidden max-w-full">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
