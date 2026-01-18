@@ -54,13 +54,16 @@ export default function ForecastAnalytics() {
       setO3Data(formattedO3);
       setLoading(false);
     } catch (error) {
+      setLoading(false);
       // Check if error is due to models unavailable
-      if (error.response && error.response.status === 503) {
+      if (error?.response?.status === 503) {
+        setModelsUnavailable(true);
+      } else if (error?.response?.data?.detail?.status === 'models_unavailable') {
         setModelsUnavailable(true);
       } else {
+        console.error('Forecast error:', error);
         toast.error('Failed to fetch forecast data');
       }
-      setLoading(false);
     }
   };
 
