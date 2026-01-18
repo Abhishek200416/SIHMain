@@ -3,24 +3,42 @@ import { motion } from 'framer-motion';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { airQualityApi } from '@/lib/api';
 import { toast } from 'sonner';
-import { Snowflake, Sun, CloudRain, Wind } from 'lucide-react';
+import { Snowflake, Sun, CloudRain, Wind, Calendar, Clock } from 'lucide-react';
 
 export default function SeasonalInsights() {
   const [historicalData, setHistoricalData] = useState([]);
   const [seasonalPatterns, setSeasonalPatterns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [timeRange, setTimeRange] = useState('months'); // 'months', 'weeks', 'days'
+  const [timeRangeValue, setTimeRangeValue] = useState({
+    months: 36,
+    weeks: 12,
+    days: 30
+  });
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [timeRange, timeRangeValue]);
 
   const fetchData = async () => {
+    setLoading(true);
     try {
+      let historicalPromise;
+      
+      if (timeRange === 'months') {
+        historicalPromise = airQualityApi.getInsightsMonthly(timeRangeValue.months);
+      } else if (timeRange === 'weeks') {
+        historicalPromise = airQualityApi.getInsightsWeekly(timeRangeValue.weeks);
+      } else {
+        historicalPromise = airQualityApi.getInsightsDaily(timeRangeValue.days);
+      }
+      
       const [historical, seasonal] = await Promise.all([
-        airQualityApi.getHistoricalData(),
+        historicalPromise,
         airQualityApi.getSeasonalPatterns()
       ]);
+      
       setHistoricalData(historical);
       setSeasonalPatterns(seasonal);
       setLoading(false);
